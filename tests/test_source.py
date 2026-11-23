@@ -9,13 +9,13 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 class ZunuConsoleSourceTests(unittest.TestCase):
     def test_plugin_identity(self):
         text = (ROOT / "src/ZunuPlugin.cs").read_text(encoding="utf-8")
-        self.assertIn('BepInPlugin("com.zuzify.zunuconsole", "ZunuConsole", "1.1.1")', text)
+        self.assertIn('BepInPlugin("com.zuzify.zunuconsole", "ZunuConsole", "1.2.0")', text)
         self.assertIn('KeyCode.F8', text)
 
     def test_unique_setting_names(self):
         text = (ROOT / "src/Core/SettingStore.cs").read_text(encoding="utf-8")
         names = re.findall(r'\bAdd(?:Num|Bool|Choice)\("([^"]+)"', text)
-        self.assertEqual(len(names), 66)
+        self.assertEqual(len(names), 69)
         self.assertEqual(len(set(names)), len(names))
 
     def test_ui_resource_cleanup(self):
@@ -33,6 +33,26 @@ class ZunuConsoleSourceTests(unittest.TestCase):
         self.assertIn('$(GameManaged)\\UnityEngine.ScreenCaptureModule.dll', project)
         self.assertIn("!Exists('$(GameManaged)\\UnityEngine.ScreenCaptureModule.dll')", project)
         self.assertIn('UnityEngine.ScreenCapture.CaptureScreenshot(file)', source)
+
+    def test_neon_separation_and_ui(self):
+        ui = (ROOT / "src/UI/ConsoleOverlay.cs").read_text(encoding="utf-8")
+        plugin = (ROOT / "src/ZunuPlugin.cs").read_text(encoding="utf-8")
+        cloud = (ROOT / "src/Cloud/ZunuCloudClient.cs").read_text(encoding="utf-8")
+        backend = (ROOT / "cloud/api/state.js").read_text(encoding="utf-8")
+        project = (ROOT / "ZunuConsole.csproj").read_text(encoding="utf-8")
+        self.assertIn("DrawResizeGrip", ui)
+        self.assertIn("GUIUtility.hotControl", ui)
+        self.assertIn("SaveWindowGeometry", ui)
+        self.assertIn("DrawLauncher", ui)
+        self.assertIn("UpdateCursor(false)", plugin)
+        self.assertIn("Cloud.Tick()", plugin)
+        self.assertIn('UnityEngine.UnityWebRequestModule', project)
+        self.assertIn('UnityEngine.JSONSerializeModule', project)
+        self.assertIn('Uri.UriSchemeHttps', cloud)
+        self.assertIn('new UnityWebRequest(url, "PUT")', cloud)
+        self.assertNotIn('DATABASE_URL', cloud)
+        self.assertIn('process.env.DATABASE_URL', backend)
+        self.assertIn('crypto.timingSafeEqual', backend)
 
     def test_no_bundled_external_assemblies(self):
         for path in ROOT.rglob('*'):

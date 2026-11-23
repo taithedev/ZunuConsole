@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — movable UI + optional Neon sync
+
+- Drag, resize, minimize, close, center and persistent bounds with dynamic screen clamping.
+- Added always-available bottom-left launcher for recovery from hidden windows.
+- Default visible for new installations and optional cursor release while the UI is open.
+- Added fifth Cloud tab and optional Neon-backed sync for a small approved preference whitelist and favorites.
+- Added serverless HTTPS API, token-hash authentication, deployment instructions and server-side SQL schema.
+- No raw PostgreSQL credentials are shipped to clients. Cloud must be deployed separately.
+
+
 ## 1.1.1 — ScreenCapture compilation fix
 
 - Added the missing `UnityEngine.ScreenCaptureModule.dll` reference used by `ui.screenshot`.

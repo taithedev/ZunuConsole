@@ -135,7 +135,10 @@ namespace ZunuConsole.Core
             AddNum("ui.hoverAlpha", .15f, .05f, .65f, .05f, "Highlight intensity");
             AddNum("ui.statusHeight", 31, 23, 55, 2, "Footer/status bar height", true);
 
-            AddBool("ui.visible", false, "Start with console showing");
+            AddBool("ui.visible", true, "Start with console showing");
+            AddBool("ui.showLauncher", true, "Show a small recovery button when the console is closed");
+            AddBool("ui.resizeEnabled", true, "Allow window resizing from the bottom right corner");
+            AddBool("ui.unlockCursor", true, "Unlock and show the mouse cursor while the console is open");
             AddBool("ui.showFps", true, "Show live FPS in header");
             AddBool("ui.showClock", true, "Show local clock");
             AddBool("ui.showVersion", true, "Show ZunuConsole version");

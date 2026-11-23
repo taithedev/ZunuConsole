@@ -20,4 +20,5 @@ jobs:
           fi
           python3 scripts/validate_commands.py
           python3 -m unittest discover -s tests -v
+          node --test cloud/tests/*.test.js
           echo 'Source layout valid. Compiling requires local game/BepInEx references.'

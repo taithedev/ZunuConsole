@@ -35,8 +35,8 @@ namespace ZunuConsole.Commands
                 if (p.Settings.Bool("console.confirmClear") && (a.Length == 0 || a[0] != "confirm")) { c.Warn("Type clear confirm to clear output."); return; }
                 p.Log.Clear(); c.Success("Output cleared.");
             });
-            Add(p, "about", "Show plugin information", "Core", "about", (c,a) => c.Say("ZunuConsole 1.1.1 | Local PC Gorilla Tag console | BepInEx 5 | F8 to toggle"));
-            Add(p, "version", "Display plugin version", "Core", "version", (c,a) => c.Say("ZunuConsole v1.1.1"));
+            Add(p, "about", "Show plugin information", "Core", "about", (c,a) => c.Say("ZunuConsole 1.2.0 | Local PC Gorilla Tag console | BepInEx 5 | F8 to toggle"));
+            Add(p, "version", "Display plugin version", "Core", "version", (c,a) => c.Say("ZunuConsole v1.2.0"));
             Add(p, "count", "Display total registered commands", "Core", "count", (c,a) => c.Say(p.Engine.Count.ToString(CultureInfo.InvariantCulture) + " commands"));
             Add(p, "history", "Show recent commands", "Core", "history [count]", (c,a) =>
             {

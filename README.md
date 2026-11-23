@@ -1,22 +1,25 @@
 # ZunuConsole
 
-**Source version:** 1.1.1 (not a compiled or game-tested release)
+**Source version:** 1.2.0 (not a compiled or game-tested release)
 
 An OLED-themed desktop command console for the **PC Mono / BepInEx 5** version of Gorilla Tag, built in C# with an extensible command registry.
 
 **Output DLL:** `ZunuConsole.dll`  
-**Open/close:** `F8` (legacy Unity keyboard input)  
+**Open/close:** `F8` (legacy Unity keyboard input), or click the bottom-left **ZUNU / OPEN** launcher  
 **UI:** Unity IMGUI on the PC game window / desktop mirror (not a standalone Windows terminal, injected VR wrist menu, or Quest APK).
 
 ## Highlights
 
 - Dark OLED/graphite/midnight palettes, 8 accents and custom RGB, draggable/dockable window, with bounded GPU texture caching.
-- Console, Commands, Settings, and Diagnostics tabs.
+- Console, Commands, Settings, Diagnostics, and Neon Cloud tabs.
+- Draggable title bar, bottom-right resizing, minimize/restore, one-click re-center, edge clamping, and persistent window size/position.
+- Reliable recovery launcher while hidden, default-visible first run and optional unlocked PC cursor.
+- Optional secure Neon profile sync (themes/appearance/favorites, no room or player data). Server-side API; see [docs/NEON.md](docs/NEON.md).
 - Live Unity log capture, severity filtering, copying and exporting logs.
-- Search across commands and descriptions, command autocomplete, keyboard history and favorites. F8 opens/closes, Ctrl+K focuses command search, Ctrl+1–4 switches tabs.
+- Search across commands and descriptions, command autocomplete, keyboard history and favorites. F8 opens/closes, Ctrl+K focuses command search, Ctrl+1–5 switches tabs.
 - Persistent local settings, history, favorites and notes.
 - Useful PC and Gorilla Tag local read-only scene diagnostics, local graphics and audio controls, timers, stopwatch, clipboard utilities and basic math.
-- **397 individually registered commands**, with functional actions/query handlers. Generated settings commands use true value management; see [`docs/COMMANDS.md`](docs/COMMANDS.md).
+- **409 individually registered commands**, with functional actions/query handlers. Generated settings commands use true value management; see [`docs/COMMANDS.md`](docs/COMMANDS.md).
 - No Gorilla Tag internals, no anti-cheat bypasses, no public-lobby gameplay cheats.
 
 ## Build prerequisites
@@ -78,7 +81,14 @@ src/
     GorillaTagCommands.cs
   UI/
     ConsoleOverlay.cs
+  Cloud/
+    ZunuCloudClient.cs
+cloud/
+  api/state.js
+  schema.sql
+  package.json
 docs/
+  NEON.md
   COMMANDS.md
   GITHUB.md
 scripts/
@@ -89,6 +99,9 @@ scripts/
 
 - Targets BepInEx 5 on the **Mono-based PC game installation**. Game updates may affect compatibility, module names, or modding rules.
 - `ui.screenshot` uses `UnityEngine.ScreenCaptureModule.dll`; the project validates that this dependency exists before compiling.
+- Drag the title to move. Drag the bottom-right corner to resize. Use the `[]` header button to center, `_` to minimize, `X` to hide.
+- If the console is hidden, click the bottom-left launcher to restore it. Use a focused PC monitor, not the VR-only view.
+- Cloud is disabled unless you deploy the HTTPS API and configure the local private token. The schema is created on Neon `Zuzify App Data` in `zuzify`.
 - F8 uses Unity's legacy input API; when the game runs with legacy input disabled, you may need to adapt the input hook for your particular version.
 - Unity quality/target FPS changes are local; the VR runtime may override display frame timing.
 - The overlay renders through Unity IMGUI on the PC window; **it is not a headset world-space console**.

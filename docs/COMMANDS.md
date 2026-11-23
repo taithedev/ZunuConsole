@@ -1,6 +1,6 @@
 # ZunuConsole command reference
 
-Total **397** registered commands: **281** automatically registered setting operations plus **116** hand-written core/diagnostic/tool/Gorilla Tag commands.
+Total **409** registered commands: **293** automatically registered setting operations plus **116** hand-written core/diagnostic/tool/Gorilla Tag commands.
 
 Every setting has a functional read/modify/reset action, not an empty placeholder. Commands that adjust settings are variants of shared underlying settings, not 1:1 gameplay mods.
 
@@ -217,3 +217,5 @@ Choice settings support `KEY`, `KEY.set <option>`, `KEY.reset`.
 ## Safety and scope
 
 Gorilla Tag commands here are read-only Unity scene/device diagnostics. There are no remote-player, lobby-abuse, anti-cheat-evasion, or competitive gameplay modifications. The visual console is PC-side IMGUI, not a VR wrist UI.
+
+The fifth Cloud tab is a visual interface. It is not an additional command category. Cloud sync is opt-in and does not upload command history, notes, game data, room codes, logs or credentials.

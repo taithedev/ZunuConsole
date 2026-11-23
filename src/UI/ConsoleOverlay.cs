@@ -12,7 +12,7 @@ namespace ZunuConsole.UI
         private readonly ZunuPlugin plugin;
         private readonly Dictionary<string, Texture2D> textures = new Dictionary<string, Texture2D>();
         private readonly Dictionary<string, GUIStyle> panels = new Dictionary<string, GUIStyle>();
-        private readonly string[] tabs = { "Console", "Commands", "Settings", "Diagnostics" };
+        private readonly string[] tabs = { "Console", "Commands", "Settings", "Diagnostics", "Cloud" };
         private Rect window = new Rect(80, 70, 900, 560);
         private Vector2 consoleScroll, categoryScroll, commandScroll, settingsScroll;
         private string input = "", commandSearch = "", settingSearch = "", category = "All";
@@ -21,6 +21,14 @@ namespace ZunuConsole.UI
         private float lastSample;
         private readonly Queue<float> fpsHistory = new Queue<float>();
         private bool focusRequested, searchFocusRequested;
+        private bool layoutReady, resizeActive, resizePending, resizeFinished, collapsed;
+        private float pendingWidth, pendingHeight;
+        private Vector2 resizeStartMouse, resizeStartSize;
+        private float layoutScreenW, layoutScreenH;
+        private float rememberedWidth, rememberedHeight, rememberedX, rememberedY;
+        private string rememberedDock;
+        private const int ResizeControlHash = 0x5A4E550;
+
         private Color background, surface, surface2, border, text, muted, accent;
         private float scaleFactor = 1f;
         private int font;
@@ -38,10 +46,93 @@ namespace ZunuConsole.UI
             return true;
         }
 
+        // Always-visible recovery launcher: fixes the previous hidden/offscreen first-run experience.
+        public void DrawLauncher()
+        {
+            if (!S.Bool("ui.showLauncher")) return;
+            ApplyPalette();
+            font = S.Int("ui.fontSize");
+            GUI.depth = -950;
+            var bounds = new Rect(18, Mathf.Max(10, Screen.height - 60), 163, 38);
+            DrawRounded(bounds, Alpha(background, .96f), 10);
+            DrawOutline(bounds, border);
+            Text(new Rect(bounds.x + 12, bounds.y + 5, 139, 26), "ZUNU  /  OPEN  [F8]", accent, 12, true);
+            if (GUI.Button(bounds, GUIContent.none, GUIStyle.none)) plugin.ToggleConsole();
+        }
+
+        private void ReadGeometry(float sw, float sh, bool reload)
+        {
+            float w = Mathf.Min(S.Number("ui.width"), Mathf.Max(280, sw - 16));
+            float h = Mathf.Min(S.Number("ui.height"), Mathf.Max(200, sh - 16));
+            string dock = S.Choice("ui.dock");
+            float x = S.Number("ui.windowX"), y = S.Number("ui.windowY");
+            if (dock == "center") { x = (sw - w) * .5f; y = (sh - h) * .5f; }
+            else if (dock == "top-left") { x = 12; y = 12; }
+            else if (dock == "top-right") { x = sw - w - 12; y = 12; }
+            else if (dock == "bottom-left") { x = 12; y = sh - h - 12; }
+            else if (dock == "bottom-right") { x = sw - w - 12; y = sh - h - 12; }
+            if (reload) window = new Rect(x, y, w, collapsed ? 72 : h);
+            else
+            {
+                window.width = w;
+                if (!collapsed) window.height = h;
+            }
+            window.x = Mathf.Clamp(window.x, 0, Mathf.Max(0, sw - window.width));
+            window.y = Mathf.Clamp(window.y, 0, Mathf.Max(0, sh - window.height));
+            RememberGeometry();
+            layoutScreenW = sw;
+            layoutScreenH = sh;
+            layoutReady = true;
+        }
+
+        private void RememberGeometry()
+        {
+            rememberedWidth = S.Number("ui.width");
+            rememberedHeight = S.Number("ui.height");
+            rememberedX = S.Number("ui.windowX");
+            rememberedY = S.Number("ui.windowY");
+            rememberedDock = S.Choice("ui.dock");
+        }
+
+        private bool GeometryChangedExternally()
+        {
+            return rememberedWidth != S.Number("ui.width") || rememberedHeight != S.Number("ui.height")
+                || rememberedX != S.Number("ui.windowX") || rememberedY != S.Number("ui.windowY")
+                || rememberedDock != S.Choice("ui.dock");
+        }
+
+        private void SaveWindowGeometry(bool sizeChanged)
+        {
+            string ignored;
+            S.Set("ui.dock", "free", out ignored);
+            S.Set("ui.windowX", Mathf.Clamp(Mathf.Round(window.x), 0, 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
+            S.Set("ui.windowY", Mathf.Clamp(Mathf.Round(window.y), 0, 2000).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
+            if (sizeChanged)
+            {
+                // Retain a valid desktop size; compact mirrors still render with clipping-aware bounds.
+                S.Set("ui.width", Mathf.Clamp(Mathf.Round(window.width), 620, 1400).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
+                if (!collapsed) S.Set("ui.height", Mathf.Clamp(Mathf.Round(window.height), 390, 950).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
+            }
+            RememberGeometry();
+        }
+
+        private void CenterWindow()
+        {
+            string ignored;
+            S.Set("ui.dock", "center", out ignored);
+            layoutReady = false;
+        }
+
+        private void ToggleCollapsed()
+        {
+            collapsed = !collapsed;
+            window.height = collapsed ? 72 : Mathf.Min(S.Number("ui.height"), Mathf.Max(200, layoutScreenH - 16));
+            window.y = Mathf.Clamp(window.y, 0, Mathf.Max(0, layoutScreenH - window.height));
+        }
+
         public void Draw()
         {
-            // Drop prior-frame textures in one batch, before any GUI controls use them.
-            // Dynamic alpha animations previously generated unbounded texture variants.
+            // Reclaim generated textures periodically instead of retaining infinitely many palette variants.
             if (textures.Count > 320)
             {
                 foreach (var texture in textures.Values) if (texture != null) UnityEngine.Object.Destroy(texture);
@@ -49,41 +140,46 @@ namespace ZunuConsole.UI
                 panels.Clear();
             }
             HandleShortcuts();
-            var before = GUI.matrix;
+            Matrix4x4 before = GUI.matrix;
+            int priorDepth = GUI.depth;
             try
             {
-                scaleFactor = S.Number("ui.scale");
+                scaleFactor = Mathf.Clamp(S.Number("ui.scale"), .75f, 1.5f);
                 GUI.matrix = Matrix4x4.Scale(new Vector3(scaleFactor, scaleFactor, 1));
-                float sw = Screen.width / scaleFactor, sh = Screen.height / scaleFactor;
-                float w = Mathf.Min(S.Number("ui.width"), Mathf.Max(420, sw - 18));
-                float h = Mathf.Min(S.Number("ui.height"), Mathf.Max(300, sh - 18));
-                var dock = S.Choice("ui.dock");
-                float x = S.Number("ui.windowX"), y = S.Number("ui.windowY");
-                if (dock == "center") { x = (sw - w) / 2; y = (sh - h) / 2; }
-                else if (dock == "top-left") { x = 12; y = 12; }
-                else if (dock == "top-right") { x = sw - w - 12; y = 12; }
-                else if (dock == "bottom-left") { x = 12; y = sh - h - 12; }
-                else if (dock == "bottom-right") { x = sw - w - 12; y = sh - h - 12; }
-                x = Mathf.Clamp(x, 0, Mathf.Max(0, sw - w));
-                y = Mathf.Clamp(y, 0, Mathf.Max(0, sh - h));
-                window = new Rect(x, y, w, h);
+                float sw = Mathf.Max(320, Screen.width / scaleFactor);
+                float sh = Mathf.Max(240, Screen.height / scaleFactor);
+                if (!layoutReady || GeometryChangedExternally() || Mathf.Abs(layoutScreenW - sw) > 2 || Mathf.Abs(layoutScreenH - sh) > 2)
+                    ReadGeometry(sw, sh, true);
+
+                window.width = Mathf.Min(window.width, sw - 16);
+                window.height = Mathf.Min(window.height, sh - 16);
+                window.x = Mathf.Clamp(window.x, 0, Mathf.Max(0, sw - window.width));
+                window.y = Mathf.Clamp(window.y, 0, Mathf.Max(0, sh - window.height));
                 ApplyPalette();
                 font = S.Int("ui.fontSize");
                 GUI.depth = -900;
-                if (S.Bool("ui.useShadows")) DrawRounded(new Rect(x + S.Number("ui.shadowOffset"), y + S.Number("ui.shadowOffset"), w, h), new Color(0, 0, 0, S.Number("ui.shadowAlpha")), S.Int("ui.rounding"));
-                var clear = new GUIStyle(GUIStyle.none);
-                window = GUI.Window(901120, window, DrawWindow, GUIContent.none, clear);
-                bool moved = Mathf.Abs(window.x - x) > 0.1f || Mathf.Abs(window.y - y) > 0.1f;
-                if (moved && (Event.current.type == EventType.MouseDrag || Event.current.type == EventType.MouseUp))
+                if (S.Bool("ui.useShadows"))
+                    DrawRounded(new Rect(window.x + S.Number("ui.shadowOffset"), window.y + S.Number("ui.shadowOffset"), window.width, window.height),
+                        new Color(0, 0, 0, S.Number("ui.shadowAlpha")), S.Int("ui.rounding"));
+                Rect previous = window;
+                resizePending = false;
+                resizeFinished = false;
+                window = GUI.Window(901120, window, DrawWindow, GUIContent.none, GUIStyle.none);
+                if (resizePending)
                 {
-                    // Dragging an anchored window switches it to free placement.
-                    string ignored;
-                    if (dock != "free") S.Set("ui.dock", "free", out ignored);
-                    S.Set("ui.windowX", Mathf.Clamp(Mathf.Round(window.x), 0, 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
-                    S.Set("ui.windowY", Mathf.Clamp(Mathf.Round(window.y), 0, 2000).ToString(System.Globalization.CultureInfo.InvariantCulture), out ignored);
+                    window.width = Mathf.Clamp(pendingWidth, Mathf.Min(620, sw - 16), Mathf.Min(1400, sw - window.x - 8));
+                    if (!collapsed) window.height = Mathf.Clamp(pendingHeight, Mathf.Min(390, sh - 16), Mathf.Min(950, sh - window.y - 8));
                 }
+                window.x = Mathf.Clamp(window.x, 0, Mathf.Max(0, sw - window.width));
+                window.y = Mathf.Clamp(window.y, 0, Mathf.Max(0, sh - window.height));
+                bool moved = Mathf.Abs(window.x - previous.x) > .25f || Mathf.Abs(window.y - previous.y) > .25f;
+                if (moved || resizeFinished) SaveWindowGeometry(resizeFinished);
             }
-            finally { GUI.matrix = before; }
+            finally
+            {
+                GUI.matrix = before;
+                GUI.depth = priorDepth;
+            }
         }
 
         private void HandleShortcuts()
@@ -96,7 +192,7 @@ namespace ZunuConsole.UI
                 searchFocusRequested = true;
                 e.Use();
             }
-            else if (e.keyCode >= KeyCode.Alpha1 && e.keyCode <= KeyCode.Alpha4)
+            else if (e.keyCode >= KeyCode.Alpha1 && e.keyCode <= KeyCode.Alpha5)
             {
                 selectedTab = (int)e.keyCode - (int)KeyCode.Alpha1;
                 e.Use();
@@ -134,6 +230,14 @@ namespace ZunuConsole.UI
             float footerH = S.Bool("ui.showStatusBar") ? S.Int("ui.statusHeight") : 0;
             float contentTop = padding + headerH + toolbarH;
             float contentBottom = h - padding - footerH;
+            if (collapsed)
+            {
+                DrawRounded(new Rect(0, 0, w, h), Alpha(background, S.Number("ui.opacity")), S.Int("ui.rounding"));
+                DrawOutline(new Rect(0, 0, w, h), border);
+                DrawHeader(w, 60, padding);
+                GUI.DragWindow(new Rect(8, 4, Mathf.Max(40, w - 145), 48));
+                return;
+            }
             float contentH = Mathf.Max(90, contentBottom - contentTop);
             DrawRounded(new Rect(0, 0, w, h), Alpha(background, S.Number("ui.opacity")), S.Int("ui.rounding"));
             DrawOutline(new Rect(0, 0, w, h), border);
@@ -143,25 +247,31 @@ namespace ZunuConsole.UI
             if (selectedTab == 0) DrawConsole(content);
             else if (selectedTab == 1) DrawCommands(content);
             else if (selectedTab == 2) DrawSettings(content);
-            else DrawDiagnostics(content);
+            else if (selectedTab == 3) DrawDiagnostics(content);
+            else DrawCloud(content);
             if (S.Bool("ui.showStatusBar")) DrawFooter(new Rect(padding, h - padding - footerH, w - 2 * padding, footerH));
-            if (S.Bool("ui.showHeader")) GUI.DragWindow(new Rect(8, 4, Mathf.Max(40, w - 220), Math.Min(48, headerH - 5)));
+            DrawResizeGrip(w, h);
+            if (S.Bool("ui.showHeader")) GUI.DragWindow(new Rect(9, 4, Mathf.Max(40, w - 145), Math.Min(48, headerH - 5)));
+            else GUI.DragWindow(new Rect(10, 4, Mathf.Max(40, w - 145), 13));
         }
         private void DrawHeader(float w, float h, float p)
         {
             DrawRounded(new Rect(p, p, 39, 39), Alpha(accent, .16f), 11);
             Text(new Rect(p, p + 7, 39, 22), "Z", accent, 19, true, TextAnchor.MiddleCenter);
-            Text(new Rect(p + 52, p + 2, 270, 22), "ZUNU  /  CONSOLE", text, 20, true);
+            Text(new Rect(p + 52, p + 2, Mathf.Min(270, w - 185), 22), "ZUNU  /  CONSOLE", text, 20, true);
             string sub = "LOCAL MOD TOOLKIT";
-            if (S.Bool("ui.showVersion")) sub += "  ·  v1.1";
-            Text(new Rect(p + 52, p + 25, 330, 17), sub, muted, 10, true);
-            float pos = w - p - 10;
-            if (S.Bool("ui.showClock"))
+            if (S.Bool("ui.showVersion")) sub += "  ·  v1.2.0";
+            Text(new Rect(p + 52, p + 25, Mathf.Max(55, w - 195), 17), sub, muted, 10, true);
+            if (Button(new Rect(w - p - 104, p + 5, 30, 27), "[]", false)) CenterWindow();
+            if (Button(new Rect(w - p - 69, p + 5, 30, 27), collapsed ? "+" : "_", false)) ToggleCollapsed();
+            if (Button(new Rect(w - p - 34, p + 5, 30, 27), "X", false)) plugin.ToggleConsole();
+            float pos = w - p - 117;
+            if (w > 900 && S.Bool("ui.showClock"))
             {
                 var clock = DateTime.Now.ToString(S.Choice("ui.timeFormat") == "h12" ? "hh:mm tt" : "HH:mm");
                 pos -= 83; Text(new Rect(pos, p + 1, 80, 20), clock, muted, 12, false, TextAnchor.MiddleRight);
             }
-            if (S.Bool("ui.showFps"))
+            if (w > 700 && S.Bool("ui.showFps"))
             {
                 pos -= 91;
                 DrawRounded(new Rect(pos, p, 80, 25), Alpha(accent, .10f), 9);
@@ -179,7 +289,7 @@ namespace ZunuConsole.UI
         }
         private void DrawToolbar(float x, float y, float w, float h)
         {
-            float buttonW = Mathf.Min(143, w / 4);
+            float buttonW = Mathf.Min(143, (w - 24) / tabs.Length - 5);
             for (int i = 0; i < tabs.Length; i++)
             {
                 float bx = x + i * (buttonW + 5);
@@ -199,7 +309,7 @@ namespace ZunuConsole.UI
             DrawOutput(new Rect(output.x + 12, output.y + 12, output.width - 24, output.height - 24));
             float inputY = area.y + outputH + 10;
             DrawInput(new Rect(area.x, inputY, area.width, inputH));
-            if (hintH > 0) Text(new Rect(area.x + 5, inputY + inputH + 2, area.width - 10, hintH - 2), "ENTER run     TAB complete     ↑↓ history     F8 show/hide", muted, 11);
+            if (hintH > 0) Text(new Rect(area.x + 5, inputY + inputH + 2, area.width - 10, hintH - 2), "ENTER run   /   TAB autocomplete   /   F8 show or hide   /   drag title, resize corner", muted, 11);
         }
         private void DrawSidebar(Rect area)
         {
@@ -459,11 +569,73 @@ namespace ZunuConsole.UI
         private void DrawFooter(Rect rect)
         {
             DrawRounded(new Rect(rect.x, rect.y + 3, rect.width, 1), border, 0);
-            string status = "●  LOCAL  ·  READY";
+            string status = "● LOCAL" + (plugin.Cloud != null ? "   /   CLOUD " + plugin.Cloud.Status : "");
             if (S.Bool("ui.showCommandCount")) status += "   ·   " + plugin.Engine.Count + " COMMANDS";
             if (S.Bool("ui.showUptime")) status += "   ·   UP " + TimeSpan.FromSeconds(Time.realtimeSinceStartup - plugin.StartTime).ToString(@"mm\:ss");
             Text(new Rect(rect.x + 5, rect.y + 10, rect.width - 150, rect.height - 10), status, accent, 10, true);
-            if (Button(new Rect(rect.xMax - 90, rect.y + 7, 86, Math.Max(20,rect.height - 9)), "HIDE  ×", false)) plugin.ToggleConsole();
+            if (Button(new Rect(rect.xMax - 119, rect.y + 7, 90, Math.Max(20,rect.height - 9)), "HIDE  X", false)) plugin.ToggleConsole();
+        }
+
+        private void DrawCloud(Rect area)
+        {
+            DrawRounded(area, surface, 11);
+            float x = area.x + 22, y = area.y + 19, width = Mathf.Max(200, area.width - 44);
+            Text(new Rect(x, y, width, 30), "NEON CLOUD  /  PROFILE SYNC", text, font + 4, true);
+            y += 42;
+            DrawRounded(new Rect(x, y, width, 67), surface2, 10);
+            Text(new Rect(x + 16, y + 10, width - 32, 20), "CONNECTION   " + plugin.Cloud.Status, plugin.Cloud.Status == "SYNCED" ? accent : muted, 13, true);
+            Text(new Rect(x + 16, y + 37, width - 32, 18), "Last successful sync: " + plugin.Cloud.LastSync, muted, 11);
+            y += 82;
+            Text(new Rect(x, y, width, 20), "API ENDPOINT", muted, 11, true);
+            y += 23;
+            DrawRounded(new Rect(x, y, width, 34), surface2, 8);
+            Text(new Rect(x + 10, y + 7, width - 20, 21), plugin.Cloud.Endpoint, text, font - 2);
+            y += 51;
+            Text(new Rect(x, y, width, 20), "Syncs appearance preferences and favorites only. No game data or logs.", muted, 11);
+            y += 37;
+            float bw = Mathf.Min(155, (width - 16) / 2);
+            if (Button(new Rect(x, y, bw, 37), plugin.Cloud.Busy ? "WORKING" : "PULL CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Pull();
+            if (Button(new Rect(x + bw + 12, y, bw, 37), plugin.Cloud.Busy ? "WORKING" : "PUSH CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Push();
+            y += 53;
+            Text(new Rect(x, y, width, 53), "Cloud is optional and disabled by default. Configure the HTTPS API URL and private token in BepInEx/config/com.zuzify.zunuconsole.cfg. See docs/NEON.md.", muted, 11, false, TextAnchor.UpperLeft, true);
+            y += 61;
+            Text(new Rect(x, y, width, 30), "NEON POSTGRES KEYS NEVER BELONG IN THE DLL", accent, 11, true);
+        }
+
+        private void DrawResizeGrip(float w, float h)
+        {
+            if (!S.Bool("ui.resizeEnabled") || collapsed) return;
+            var grip = new Rect(w - 31, h - 31, 26, 26);
+            DrawRounded(grip, Alpha(accent, .13f), 7);
+            Text(new Rect(grip.x + 1, grip.y - 1, 24, 26), "\\", accent, 19, true, TextAnchor.MiddleCenter);
+            Event e = Event.current;
+            int control = GUIUtility.GetControlID(ResizeControlHash, FocusType.Passive, grip);
+            switch (e.GetTypeForControl(control))
+            {
+                case EventType.MouseDown:
+                    if (e.button != 0 || !grip.Contains(e.mousePosition)) break;
+                    GUIUtility.hotControl = control;
+                    resizeActive = true;
+                    resizeStartMouse = new Vector2(window.x + e.mousePosition.x, window.y + e.mousePosition.y);
+                    resizeStartSize = new Vector2(window.width, window.height);
+                    e.Use();
+                    break;
+                case EventType.MouseDrag:
+                    if (GUIUtility.hotControl != control || !resizeActive) break;
+                    Vector2 global = new Vector2(window.x + e.mousePosition.x, window.y + e.mousePosition.y);
+                    pendingWidth = resizeStartSize.x + global.x - resizeStartMouse.x;
+                    pendingHeight = resizeStartSize.y + global.y - resizeStartMouse.y;
+                    resizePending = true;
+                    e.Use();
+                    break;
+                case EventType.MouseUp:
+                    if (GUIUtility.hotControl != control || !resizeActive) break;
+                    GUIUtility.hotControl = 0;
+                    resizeActive = false;
+                    resizeFinished = true;
+                    e.Use();
+                    break;
+            }
         }
 
         private void Change(string key, string value) { string error; plugin.Settings.Set(key, value, out error); if (error != null) plugin.Log.Write(error, LogSeverity.Warning); }
