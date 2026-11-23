@@ -1,0 +1,23 @@
+name: Source checks
+on:
+  push:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate project layout and source safety
+        shell: bash
+        run: |
+          test -f ZunuConsole.csproj
+          test -f src/ZunuPlugin.cs
+          test -f src/UI/ConsoleOverlay.cs
+          test -f docs/COMMANDS.md
+          if find . -type f \( -name '*.dll' -o -name '*.exe' \) | grep .; then
+            echo 'Do not commit game or compiled binaries.'
+            exit 1
+          fi
+          python3 scripts/validate_commands.py
+          python3 -m unittest discover -s tests -v
+          echo 'Source layout valid. Compiling requires local game/BepInEx references.'

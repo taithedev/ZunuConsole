@@ -1,0 +1,11 @@
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.log
+*.dll
+*.pdb
+*.cache
+GameLibraries/
+local.settings
