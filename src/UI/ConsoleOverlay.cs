@@ -14,8 +14,10 @@ namespace ZunuConsole.UI
         private readonly Dictionary<string, GUIStyle> panels = new Dictionary<string, GUIStyle>();
         private readonly string[] tabs = { "Console", "Commands", "Settings", "Diagnostics", "Cloud" };
         private Rect window = new Rect(80, 70, 900, 560);
-        private Vector2 consoleScroll, categoryScroll, commandScroll, settingsScroll;
+        private Vector2 consoleScroll, categoryScroll, commandScroll, settingsScroll, cloudScroll;
         private string input = "", commandSearch = "", settingSearch = "", category = "All";
+        private string cloudUrlInput = "", cloudTokenInput = "";
+        private bool initializedCloudInput;
         private int selectedTab, historyPosition = -1;
         private int lastLineCount = -1;
         private float lastSample;
@@ -579,27 +581,60 @@ namespace ZunuConsole.UI
         private void DrawCloud(Rect area)
         {
             DrawRounded(area, surface, 11);
-            float x = area.x + 22, y = area.y + 19, width = Mathf.Max(200, area.width - 44);
+            if (!initializedCloudInput)
+            {
+                cloudUrlInput = plugin.Cloud.Endpoint == "Not configured" ? "" : plugin.Cloud.Endpoint;
+                initializedCloudInput = true;
+            }
+            float panelWidth = Mathf.Max(260, area.width - 20);
+            cloudScroll = GUI.BeginScrollView(new Rect(area.x + 4, area.y + 4, area.width - 8, area.height - 8),
+                cloudScroll, new Rect(0, 0, panelWidth, 425));
+            float x = 17, y = 12, width = panelWidth - 34;
             Text(new Rect(x, y, width, 30), "NEON CLOUD  /  PROFILE SYNC", text, font + 4, true);
-            y += 42;
-            DrawRounded(new Rect(x, y, width, 67), surface2, 10);
-            Text(new Rect(x + 16, y + 10, width - 32, 20), "CONNECTION   " + plugin.Cloud.Status, plugin.Cloud.Status == "SYNCED" ? accent : muted, 13, true);
-            Text(new Rect(x + 16, y + 37, width - 32, 18), "Last successful sync: " + plugin.Cloud.LastSync, muted, 11);
-            y += 82;
-            Text(new Rect(x, y, width, 20), "API ENDPOINT", muted, 11, true);
-            y += 23;
-            DrawRounded(new Rect(x, y, width, 34), surface2, 8);
-            Text(new Rect(x + 10, y + 7, width - 20, 21), plugin.Cloud.Endpoint, text, font - 2);
-            y += 51;
-            Text(new Rect(x, y, width, 20), "Syncs appearance preferences and favorites only. No game data or logs.", muted, 11);
-            y += 37;
-            float bw = Mathf.Min(155, (width - 16) / 2);
-            if (Button(new Rect(x, y, bw, 37), plugin.Cloud.Busy ? "WORKING" : "PULL CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Pull();
-            if (Button(new Rect(x + bw + 12, y, bw, 37), plugin.Cloud.Busy ? "WORKING" : "PUSH CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Push();
-            y += 53;
-            Text(new Rect(x, y, width, 53), "Cloud is optional and disabled by default. Configure the HTTPS API URL and private token in BepInEx/config/com.zuzify.zunuconsole.cfg. See docs/NEON.md.", muted, 11, false, TextAnchor.UpperLeft, true);
-            y += 61;
-            Text(new Rect(x, y, width, 30), "NEON POSTGRES KEYS NEVER BELONG IN THE DLL", accent, 11, true);
+            y += 39;
+            DrawRounded(new Rect(x, y, width, 58), surface2, 9);
+            Text(new Rect(x + 14, y + 7, width - 28, 20), "STATUS  /  " + plugin.Cloud.Status,
+                plugin.Cloud.Status == "SYNCED" ? accent : muted, 13, true);
+            Text(new Rect(x + 14, y + 29, width - 28, 18), "Last successful sync: " + plugin.Cloud.LastSync, muted, 11);
+            y += 73;
+            Text(new Rect(x, y, width, 18), "HTTPS API URL", muted, 11, true);
+            y += 21;
+            DrawRounded(new Rect(x, y, width, 35), surface2, 7);
+            cloudUrlInput = GUI.TextField(new Rect(x + 10, y + 6, width - 20, 24),
+                cloudUrlInput ?? "", 280, Style(font - 1, text));
+            y += 46;
+            Text(new Rect(x, y, width, 18), "PRIVATE ACCESS TOKEN (HIDDEN)", muted, 11, true);
+            y += 21;
+            DrawRounded(new Rect(x, y, width, 35), surface2, 7);
+            cloudTokenInput = GUI.PasswordField(new Rect(x + 10, y + 6, width - 20, 24),
+                cloudTokenInput ?? "", '*', 256, Style(font - 1, text));
+            y += 48;
+            float half = Mathf.Max(110, (width - 12) / 2);
+            if (Button(new Rect(x, y, half, 35), "SAVE & CONNECT", true) && !plugin.Cloud.Busy)
+            {
+                string reason;
+                if (plugin.Cloud.Configure(cloudUrlInput, cloudTokenInput, out reason))
+                {
+                    cloudTokenInput = "";
+                    plugin.Cloud.Pull();
+                }
+                else plugin.Log.Write(reason, LogSeverity.Warning);
+            }
+            if (Button(new Rect(x + half + 12, y, half, 35), "DISCONNECT", false) && !plugin.Cloud.Busy)
+            {
+                cloudTokenInput = "";
+                plugin.Cloud.Disconnect();
+            }
+            y += 47;
+            if (Button(new Rect(x, y, half, 35), "PULL CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Pull();
+            if (Button(new Rect(x + half + 12, y, half, 35), "PUSH CLOUD", false) && !plugin.Cloud.Busy) plugin.Cloud.Push();
+            y += 48;
+            Text(new Rect(x, y, width, 47),
+                "Optional: syncs themes and favorite commands only. Needs your own deployed API and per-user token. Setup: docs/NEON.md.",
+                muted, 11, false, TextAnchor.UpperLeft, true);
+            y += 49;
+            Text(new Rect(x, y, width, 24), "DO NOT ENTER NEON POSTGRES PASSWORDS HERE", accent, 11, true);
+            GUI.EndScrollView();
         }
 
         private void DrawResizeGrip(float w, float h)

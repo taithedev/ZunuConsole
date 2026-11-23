@@ -14,7 +14,7 @@ An OLED-themed desktop command console for the **PC Mono / BepInEx 5** version o
 - Console, Commands, Settings, Diagnostics, and Neon Cloud tabs.
 - Draggable title bar, bottom-right resizing, minimize/restore, one-click re-center, edge clamping, and persistent window size/position.
 - Reliable recovery launcher while hidden, default-visible first run and optional unlocked PC cursor.
-- Optional secure Neon profile sync (themes/appearance/favorites, no room or player data). Server-side API; see [docs/NEON.md](docs/NEON.md).
+- Optional secure Neon profile sync (themes/appearance/favorites, no room or player data) with in-app masked-token setup and Disconnect. Server-side API; see [docs/NEON.md](docs/NEON.md).
 - Live Unity log capture, severity filtering, copying and exporting logs.
 - Search across commands and descriptions, command autocomplete, keyboard history and favorites. F8 opens/closes, Ctrl+K focuses command search, Ctrl+1–5 switches tabs.
 - Persistent local settings, history, favorites and notes.

@@ -5,6 +5,7 @@
 - Drag, resize, minimize, close, center and persistent bounds with dynamic screen clamping.
 - Added always-available bottom-left launcher for recovery from hidden windows.
 - Default visible for new installations and optional cursor release while the UI is open.
+- Added masked in-game API/token setup and local-token clearing on Disconnect.
 - Added fifth Cloud tab and optional Neon-backed sync for a small approved preference whitelist and favorites.
 - Added serverless HTTPS API, token-hash authentication, deployment instructions and server-side SQL schema.
 - No raw PostgreSQL credentials are shipped to clients. Cloud must be deployed separately.

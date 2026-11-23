@@ -29,11 +29,13 @@ For production, create a **dedicated least-privilege PostgreSQL role** that is g
    are currently managed server-side; automatic login with Zuzify Identity is not implemented.
 6. Deploy. `https://YOUR-DEPLOYMENT.vercel.app/api/state` will answer GET and PUT;
    unauthenticated requests return HTTP 401. Use the exact deployment URL, not a GitHub URL.
-7. Start Gorilla Tag and open `BepInEx/config/com.zuzify.zunuconsole.cfg`.
-   Set `[Neon Cloud]` → `Enabled = true`, `ApiBaseUrl = https://YOUR-DEPLOYMENT.vercel.app`,
-   `AccessToken = YOUR_PRIVATE_TOKEN`, `IntervalSeconds = 120`.
-8. Restart Gorilla Tag, open the **Cloud** tab, and use **PULL** / **PUSH**. First sync
-   automatically creates a profile if one does not already exist.
+7. Start Gorilla Tag, open **Cloud** in ZunuConsole, enter the **HTTPS base URL**
+   and your **private user token** (not the database connection string), then click
+   **SAVE & CONNECT**. The token input is masked; it is saved only in your local
+   `BepInEx/config/com.zuzify.zunuconsole.cfg` for subsequent sessions.
+8. Use **PULL** / **PUSH** for manual sync. First sync automatically creates a
+   profile if one does not already exist. **DISCONNECT** disables sync and clears
+   the locally saved access token. You can also manage these values in that .cfg file.
 
 Keep your `com.zuzify.zunuconsole.cfg` private: the access token is stored in that local file.
 Do not post it in a GitHub issue. Revoke a token by removing its hash from the server.
