@@ -35,8 +35,8 @@ namespace ZunuConsole.Commands
                 if (p.Settings.Bool("console.confirmClear") && (a.Length == 0 || a[0] != "confirm")) { c.Warn("Type clear confirm to clear output."); return; }
                 p.Log.Clear(); c.Success("Output cleared.");
             });
-            Add(p, "about", "Show plugin information", "Core", "about", (c,a) => c.Say("ZunuConsole 1.0.0 | Local PC Gorilla Tag console | BepInEx 5 | F8 to toggle"));
-            Add(p, "version", "Display plugin version", "Core", "version", (c,a) => c.Say("ZunuConsole v1.0.0"));
+            Add(p, "about", "Show plugin information", "Core", "about", (c,a) => c.Say("ZunuConsole 1.1.1 | Local PC Gorilla Tag console | BepInEx 5 | F8 to toggle"));
+            Add(p, "version", "Display plugin version", "Core", "version", (c,a) => c.Say("ZunuConsole v1.1.1"));
             Add(p, "count", "Display total registered commands", "Core", "count", (c,a) => c.Say(p.Engine.Count.ToString(CultureInfo.InvariantCulture) + " commands"));
             Add(p, "history", "Show recent commands", "Core", "history [count]", (c,a) =>
             {
@@ -71,7 +71,7 @@ namespace ZunuConsole.Commands
             Add(p, "ui.focus", "Focus the command input", "Interface", "ui.focus", (c,a) => { p.Overlay.FocusInput(); c.Success("Input focused."); });
             Add(p, "ui.search", "Set command browser query", "Interface", "ui.search <query>", (c,a) => { p.Overlay.SetSearch(CommandEngine.ArgText(a)); c.Success("Browser search changed."); });
             Add(p, "ui.screenshot", "Capture an ordinary screenshot to local app folder", "Interface", "ui.screenshot", (c,a) =>
-            { string file = Path.Combine(Paths.ConfigPath, "ZunuConsole", "screenshot-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png"); Directory.CreateDirectory(Path.GetDirectoryName(file)); ScreenCapture.CaptureScreenshot(file); c.Success("Screenshot requested: " + file); });
+            { string file = Path.Combine(Paths.ConfigPath, "ZunuConsole", "screenshot-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png"); Directory.CreateDirectory(Path.GetDirectoryName(file)); UnityEngine.ScreenCapture.CaptureScreenshot(file); c.Success("Screenshot requested: " + file); });
             Add(p, "ui.command", "Prefill the input with a command", "Interface", "ui.command <name>", (c,a) => { p.Overlay.Prefill(CommandEngine.ArgText(a)); c.Success("Input prefilled."); });
 
             Add(p, "unity.version", "Display running Unity version", "Diagnostics", "unity.version", (c,a) => c.Say(Application.unityVersion));

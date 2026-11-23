@@ -9,7 +9,7 @@ using ZunuConsole.UI;
 
 namespace ZunuConsole
 {
-    [BepInPlugin("com.zuzify.zunuconsole", "ZunuConsole", "1.1.0")]
+    [BepInPlugin("com.zuzify.zunuconsole", "ZunuConsole", "1.1.1")]
     public sealed class ZunuPlugin : BaseUnityPlugin
     {
         internal SettingStore Settings { get; private set; }
@@ -38,7 +38,7 @@ namespace ZunuConsole
             GorillaTagCommands.Register(this);
             Overlay = new ConsoleOverlay(this);
             Application.logMessageReceived += OnUnityLog;
-            Log.Write("ZUNUCONSOLE / PC BUILD 1.1.0", LogSeverity.Success);
+            Log.Write("ZUNUCONSOLE / PC BUILD 1.1.1", LogSeverity.Success);
             Log.Write("Loaded " + Engine.Count + " commands. F8 toggles the OLED console.");
             Log.Write("Use help, commands, search <term>, or the Commands browser.");
             Logger.LogInfo("ZunuConsole loaded (" + Engine.Count + " commands)");

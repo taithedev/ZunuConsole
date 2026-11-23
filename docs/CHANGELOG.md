@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — ScreenCapture compilation fix
+
+- Added the missing `UnityEngine.ScreenCaptureModule.dll` reference used by `ui.screenshot`.
+- Added a build prerequisite check with a descriptive missing-DLL error.
+- Qualified the screenshot API as `UnityEngine.ScreenCapture` and synchronized displayed version numbers.
+- Added a regression test for the project screenshot module reference.
+
 ## 1.1.0 — source update
 
 - Fixed unbounded texture/style cache growth in the IMGUI console.

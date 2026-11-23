@@ -1,6 +1,6 @@
 # ZunuConsole
 
-**Source version:** 1.1.0 (not a compiled or game-tested release)
+**Source version:** 1.1.1 (not a compiled or game-tested release)
 
 An OLED-themed desktop command console for the **PC Mono / BepInEx 5** version of Gorilla Tag, built in C# with an extensible command registry.
 
@@ -23,7 +23,7 @@ An OLED-themed desktop command console for the **PC Mono / BepInEx 5** version o
 
 1. Visual Studio 2022 with **.NET desktop development** workload and the .NET SDK supporting **netstandard2.1**. Start from a C# Class Library, rather than the legacy .NET Framework-only template.
 2. Your legitimately installed **PC Gorilla Tag** game and **BepInEx 5** (`Gorilla Tag/BepInEx/core/BepInEx.dll`).
-3. Local game Unity DLLs in `Gorilla Tag/Gorilla Tag_Data/Managed/`. This repository **does not ship game DLLs**.
+3. Local game Unity DLLs in `Gorilla Tag/Gorilla Tag_Data/Managed/`, including `UnityEngine.ScreenCaptureModule.dll` for the `ui.screenshot` command. This repository **does not ship game DLLs**.
 
 Open `ZunuConsole.sln`. Choose `Release / Any CPU`. If installed in a nonstandard folder, build with:
 
@@ -88,6 +88,7 @@ scripts/
 ## Compatibility and limitations
 
 - Targets BepInEx 5 on the **Mono-based PC game installation**. Game updates may affect compatibility, module names, or modding rules.
+- `ui.screenshot` uses `UnityEngine.ScreenCaptureModule.dll`; the project validates that this dependency exists before compiling.
 - F8 uses Unity's legacy input API; when the game runs with legacy input disabled, you may need to adapt the input hook for your particular version.
 - Unity quality/target FPS changes are local; the VR runtime may override display frame timing.
 - The overlay renders through Unity IMGUI on the PC window; **it is not a headset world-space console**.
